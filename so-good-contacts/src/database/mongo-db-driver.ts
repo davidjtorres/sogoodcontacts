@@ -1,27 +1,18 @@
-// path/to/database/mongoDatabaseDriver.ts
-import { MongoClient, Db } from 'mongodb';
-import { IDatabaseDriver } from './databaseDriverInterface';
-import { injectable } from 'inversify';
+import { MongoClient, Db } from "mongodb";
 
-@injectable()
-export class MongoDatabaseDriver implements IDatabaseDriver {
-    private client: MongoClient;
-    private dbName: string;
+const uri = process.env.MONGODB_URI!;
+const client = new MongoClient(uri);
+let db: Db;
 
-    constructor(uri: string, dbName: string) {
-        this.client = new MongoClient(uri);
-        this.dbName = dbName;
-    }
 
-    async connect(): Promise<void> {
-        await this.client.connect();
-    }
+export const connectMongoDB = async (): Promise<Db> => {
+  if (!db) {
+    await client.connect();
+    db = client.db(process.env.MONGODB_DATABASE!);
+  }
+  return db;
+};
 
-    getDb(): Db {
-        return this.client.db(this.dbName);
-    }
-
-    async close(): Promise<void> {
-        await this.client.close();
-    }
-}
+export const disconnectMongoDB = async (): Promise<void> => {
+  await client.close();
+};
