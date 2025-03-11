@@ -22,25 +22,27 @@ export class ContactRepository implements IRepository<Contact> {
 	}
 
 	async findAll(query?: Record<string, unknown>, skip?: number, limit?: number): Promise<Contact[]> {
-		return this.db
+		const contacts = await this.db
 			.collection<Contact>(this.collection)
 			.find(query || {})
 			.skip(skip || 0)
 			.limit(limit || 50)
 			.toArray();
+		return contacts.map((contact) => ({ ...contact, id: contact._id.toString() }));
 	}
 
 	async findOne(query: Record<string, unknown>): Promise<Contact | null> {
-		return this.db.collection<Contact>(this.collection).findOne(query);
+		const contact = await this.db.collection<Contact>(this.collection).findOne(query);
+		return contact ? { ...contact, id: contact._id.toString() } : null;
 	}
 
-	async update(query: Record<string, unknown>, data: Partial<Contact>): Promise<number> {
+	async update(query: Record<string, unknown>, data: Partial<Contact>) {
 		const result = await this.db.collection<Contact>(this.collection).updateOne(query, { $set: data });
-		return result.modifiedCount;
+		return { modifiedCount: result.modifiedCount };
 	}
 
-	async delete(query: Record<string, unknown>): Promise<number> {
+	async delete(query: Record<string, unknown>) {
 		const result = await this.db.collection<Contact>(this.collection).deleteOne(query);
-		return result.deletedCount;
+		return { deletedCount: result.deletedCount };
 	}
 }
