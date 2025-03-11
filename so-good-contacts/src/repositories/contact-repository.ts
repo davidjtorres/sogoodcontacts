@@ -8,14 +8,24 @@ export class ContactRepository implements IRepository<Contact> {
   private collection = "contacts";
 
   constructor(@inject("Database") private db: Db) {}
-
-  async create(contact: Contact): Promise<Contact> {
+  async create(contact: Contact | Contact[]): Promise<Contact | Contact[]> {
+    if (Array.isArray(contact)) {
+      const result = await this.db.collection<Contact>(this.collection).insertMany(contact);
+      return contact.map((c, index) => ({
+        ...c,
+        id: result.insertedIds[index].toString()
+      }));
+    }
     const result = await this.db.collection<Contact>(this.collection).insertOne(contact);
     return { ...contact, id: result.insertedId.toString() };
   }
 
-  async findAll(query?: Record<string, unknown>): Promise<Contact[]> {
-    return this.db.collection<Contact>(this.collection).find(query || {}).toArray();
+  async findAll(query?: Record<string, unknown>, skip?: number, limit?: number): Promise<Contact[]> {
+    return this.db.collection<Contact>(this.collection)
+      .find(query || {})
+      .skip(skip || 0)
+      .limit(limit || 50)
+      .toArray();
   }
 
   async findOne(query: Record<string, unknown>): Promise<Contact | null> {
