@@ -5,7 +5,7 @@ import { IRepository } from "./interfaces";
 
 @injectable()
 export class ContactRepository implements IRepository<Contact> {
-	private collection = "contacts";
+	private readonly collection = "contacts";
 
 	constructor(@inject("Database") private db: Db) {}
 
