@@ -40,7 +40,12 @@ export class ConstantContactApi {
 	}
 
 	async getContactLists() {
-		const response = await this.httpClient.get(`/contact_lists`);
-		return response.data.lists;
+		try {
+			const response = await this.httpClient.get(`/contact_lists`);
+			return response.data.lists;
+		} catch (error) {
+			console.error("Error fetching contact lists:", JSON.stringify(error.response.data) );
+			throw error;
+		}
 	}
 }

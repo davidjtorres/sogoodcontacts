@@ -1,6 +1,6 @@
 import { Db, ObjectId, WithId } from "mongodb";
 import { ContactRepository } from "./contact-repository";
-import { Contact } from "@/models/contact";
+import { Contact } from "@/app/api/models/contact";
 import { before } from "node:test";
 import { Container } from "inversify";
 

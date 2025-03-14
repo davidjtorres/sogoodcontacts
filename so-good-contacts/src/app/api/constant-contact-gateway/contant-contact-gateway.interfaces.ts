@@ -114,3 +114,9 @@ export interface IConstantContactApiImportContact {
 
 	[key: `cf:${string}`]: string;
 }
+
+
+export interface IConstantContactApiContactList {
+	id: string;
+	name: string;
+}

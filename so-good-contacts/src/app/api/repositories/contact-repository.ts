@@ -1,6 +1,6 @@
 import { inject, injectable } from "inversify";
 import { Db } from "mongodb";
-import { Contact } from "@/models/contact";
+import { Contact } from "@/app/api/models/contact";
 import { IRepository } from "./interfaces";
 
 @injectable()

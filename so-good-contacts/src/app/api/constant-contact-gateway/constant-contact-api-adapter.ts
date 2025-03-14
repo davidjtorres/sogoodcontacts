@@ -1,6 +1,6 @@
 import { ConstantContactApi } from "./constant-contact-api";
 import { inject, injectable } from "inversify";
-import { Contact } from "@/models/contact";
+import { Contact } from "@/app/api/models/contact";
 import {
 	IConstantContactApiContact,
 	IConstantContactApiImportContact,

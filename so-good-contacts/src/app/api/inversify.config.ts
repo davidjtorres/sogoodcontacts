@@ -1,10 +1,10 @@
 import "reflect-metadata";
 import { Container } from "inversify";
 import { Db } from "mongodb";
-import { connectMongoDB } from "@/database/mongo-db-driver";
-import { ContactRepository } from "@/repositories/contact-repository";
-import { ConstantContactApi } from "@/constant-contact-gateway/constant-contact-api";
-import { ConstantContactApiAdapter } from "@/constant-contact-gateway/constant-contact-api-adapter";
+import { connectMongoDB } from "@/app/api/database/mongo-db-driver";
+import { ContactRepository } from "@/app/api/repositories/contact-repository";
+import { ConstantContactApi } from "@/app/api/constant-contact-gateway/constant-contact-api";
+import { ConstantContactApiAdapter } from "@/app/api/constant-contact-gateway/constant-contact-api-adapter";
 import axios from "axios";
 import { User } from "./models/user";
 import { ContactsService } from "./services/contacts-service";

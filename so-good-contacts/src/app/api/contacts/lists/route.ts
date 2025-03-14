@@ -1,5 +1,5 @@
-import { getContainer } from "@/inversify.config";
-import { ContactsService } from "@/services/contacts-service";
+import { getContainer } from "@/app/api/inversify.config";
+import { ContactsService } from "@/app/api/services/contacts-service";
 import { NextResponse } from "next/server";
 
 const authUser = {
