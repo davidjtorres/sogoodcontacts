@@ -6,7 +6,9 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - MONGODB_URI=mongodb://mongo:27017/sogoodcontacts
+      - CONSTANT_CONTACT_API_URL=https://api.cc.email/v3
+      - MONGODB_DATABASE=sogoodcontacts
+      - MONGODB_URI=mongodb://mongo:27017
     depends_on:
       - mongo
     volumes:
