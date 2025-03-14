@@ -1,0 +1,16 @@
+import { getContainer } from "@/inversify.config";
+import { ContactsService } from "@/services/contacts-service";
+import { NextResponse } from "next/server";
+
+const authUser = {
+	id: "67cf575d562cd26f0c2ffe49",
+	name: "John Doe",
+	email: "john.doe@example.com",
+	constant_contact_token: "eyJraWQiOiJqRFZQN1F2eHdsaXdZV09sWFpVUDBOUlQ3aml6dlZQaXBwVWRUcFJselZZIiwiYWxnIjoiUlMyNTYifQ.eyJ2ZXIiOjEsImp0aSI6IkFULndHSV9QSnlHZmZXMWhYMklfZUc1T0h2azdKNW92SU1BVG9OUFdEYURtMEUub2FyMW1nZmZod2RMaHR0SmEwaDciLCJpc3MiOiJodHRwczovL2lkZW50aXR5LmNvbnN0YW50Y29udGFjdC5jb20vb2F1dGgyL2F1czFsbTNyeTltRjd4MkphMGg4IiwiYXVkIjoiaHR0cHM6Ly9hcGkuY2MuZW1haWwvdjMiLCJpYXQiOjE3NDE5NzIwMzksImV4cCI6MTc0MjA1ODQzOSwiY2lkIjoiZDkyYTVmOTctOWFiYS00Zjg0LWJiNmItOTEzZTljYjJlZTg3IiwidWlkIjoiMDB1MjFpZ3FiNmtUQTd1NkowaDgiLCJzY3AiOlsiYWNjb3VudF9yZWFkIiwib2ZmbGluZV9hY2Nlc3MiLCJhY2NvdW50X3VwZGF0ZSIsImNhbXBhaWduX2RhdGEiLCJjb250YWN0X2RhdGEiXSwiYXV0aF90aW1lIjoxNzQxOTcyMDMyLCJzdWIiOiJkYXZpZGpfdG9ycmVzQG91dGxvb2suY29tIiwicGxhdGZvcm1fdXNlcl9pZCI6IjhhY2NmMDBmLWYzODQtNGQ5Ni1iNGIyLWJkMTE0OTA4MWY2YiJ9.vtVylMpA8Mh5ggtwsA5RxfeLwzX2Ym_COgxyfMUMFSN7bgknjRaAdXt-IRvyiND0bTvxpgJXBVogvOZGonZtx_F7tBR00U8OhSRz_Vp3H-hXAe7R-GdyzDYYF_w5m_Z7DMGNq7Wjjxy6wL4W_f0XRKzke2jH0pN49iu9PA-96rpo7xWp7goL0YGqnz_1BLe1FWdkkkhsaX9SZbfB9DhZhNQtsjjnIFU7jMNFsof-xHrfvQxwviq9A5Nx-WRuVO7Wt3ycmJ3LnT4XSy7-hQth98CDLbKqHNrY8P9glq2_jPu1PZtlPCVZHMMUvm-BrkW2mmBaaQb8JkAQkDPOuYxJ8Q",
+};
+export async function GET() {
+	const container = await getContainer(authUser);
+	const contactsService = container.get(ContactsService);
+	const lists = await contactsService.getConstantContactContactLists();
+	return NextResponse.json(lists);
+}
