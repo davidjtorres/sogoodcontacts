@@ -6,12 +6,15 @@ import { Download, Upload, RefreshCw, MoreVertical, UserPlus } from "lucide-reac
 import { useEffect, useState } from "react";
 import { Contact } from "./api/models/contact";
 import AddContactModal from "@/components/AddContactModal";
+import ImportContactsModal from "@/components/ImportContactsModal";
 import { Toaster } from "@/components/ui/toaster";
+import { toast } from "@/components/ui/use-toast";
 
 export default function Home() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [contacts, setContacts] = useState<Contact[]>([]);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+	const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 	const [nextCursor, setNextCursor] = useState<string | null>(null);
 	const [hasMore, setHasMore] = useState(false);
 	const [isLoading, setIsLoading] = useState(true);
@@ -60,6 +63,17 @@ export default function Home() {
 		setContacts((prev) => [newContact, ...prev]);
 	};
 
+	const handleImportComplete = (count: number) => {
+		// Refresh the contacts list
+		fetchContacts();
+		
+		// Show a toast notification
+		toast({
+			title: "Import successful",
+			description: `${count} contacts have been imported.`,
+		});
+	};
+
 	const handleLoadMore = () => {
 		if (nextCursor) {
 			fetchContacts(nextCursor, true);
@@ -91,7 +105,10 @@ export default function Home() {
 					<UserPlus className="mr-2 h-4 w-4 text-gray-900 group-hover:text-white" />
 					Add Contact
 				</Button>
-				<Button className="bg-white text-gray-900 border-2 border-[#8B5CF6] hover:bg-[#8B5CF6] hover:text-white transition-colors">
+				<Button 
+					className="bg-white text-gray-900 border-2 border-[#8B5CF6] hover:bg-[#8B5CF6] hover:text-white transition-colors"
+					onClick={() => setIsImportModalOpen(true)}
+				>
 					<Upload className="mr-2 h-4 w-4 text-gray-900 group-hover:text-white" />
 					Import
 				</Button>
@@ -194,6 +211,13 @@ export default function Home() {
 				isOpen={isAddModalOpen}
 				onClose={() => setIsAddModalOpen(false)}
 				onContactAdded={handleAddContact}
+			/>
+			
+			{/* Import Contacts Modal */}
+			<ImportContactsModal
+				isOpen={isImportModalOpen}
+				onClose={() => setIsImportModalOpen(false)}
+				onImportComplete={handleImportComplete}
 			/>
 
 			{/* Toast Container */}
