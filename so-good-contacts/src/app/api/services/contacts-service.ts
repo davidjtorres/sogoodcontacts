@@ -2,7 +2,6 @@ import { ConstantContactApiAdapter } from "@/app/api/constant-contact-gateway/co
 import { Contact } from "@/app/api/models/contact";
 import { ContactRepository } from "@/app/api/repositories/contact-repository";
 import { injectable, inject } from "inversify";
-
 @injectable()
 export class ContactsService {
 	constructor(
@@ -12,6 +11,10 @@ export class ContactsService {
 
 	async getContacts(userId: string) {
 		return this.contactRepository.findAll({ user_id: userId });
+	}
+
+	async getContactsWithCursor(userId: string) {
+		return this.contactRepository.findByUserId(userId);
 	}
 
 	// Create contact in So Good Contacts
@@ -38,5 +41,10 @@ export class ContactsService {
 	async syncConstantContactContacts() {
 		const contacts = await this.getContactsFromConstantContact();
 		this.contactRepository.create(contacts);
+	}
+
+	async exportContacts() {
+		// Use the repository to stream contacts to CSV for the specific user
+		return this.contactRepository.exportContactsToCSV();
 	}
 }
