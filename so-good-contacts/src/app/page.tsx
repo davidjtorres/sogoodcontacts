@@ -13,6 +13,7 @@ export default function Home() {
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 	const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 	const [isExporting, setIsExporting] = useState(false);
+	const [isSyncing, setIsSyncing] = useState(false);
 
 	const handleAddContact = () => {
 		// Refresh will happen automatically via the ContactsPagination component
@@ -66,12 +67,43 @@ export default function Home() {
 		}
 	};
 
-	const handleSyncConstantContact = () => {
-		// This will be implemented later
-		toast({
-			title: "Sync with Constant Contact",
-			description: "This feature is coming soon.",
-		});
+	const handleSyncConstantContact = async () => {
+		try {
+			setIsSyncing(true);
+			// Show starting sync notification
+			toast({
+				title: "Sync started",
+				description: "Syncing contacts with Constant Contact...",
+			});
+			// Call the sync API endpoint
+			const response = await fetch("/api/contacts/sync", {
+				method: "POST",
+			});
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to sync contacts");
+			}
+			const result = await response.json();
+			// Show success message with the number of contacts synced
+			toast({
+				title: "Sync successful",
+				description: `${result.count} contacts have been synced from Constant Contact.`,
+			});
+			// Refresh the contacts list
+			// This will trigger automatically if using a global state management or SWR/React Query
+			// For now, we can trigger a page refresh
+			window.location.reload();
+		} catch (error) {
+			console.error("Error syncing contacts:", error);
+			// Show error message
+			toast({
+				title: "Sync failed",
+				description: error instanceof Error ? error.message : "Failed to sync contacts. Please try again.",
+				variant: "destructive",
+			});
+		} finally {
+			setIsSyncing(false);
+		}
 	};
 
 	return (
@@ -108,9 +140,10 @@ export default function Home() {
 				<Button
 					className="bg-white text-gray-900 border-2 border-[#8B5CF6] hover:bg-[#8B5CF6] hover:text-white transition-colors"
 					onClick={handleSyncConstantContact}
+					disabled={isSyncing}
 				>
-					<RefreshCw className="mr-2 h-4 w-4 text-gray-900 group-hover:text-white" />
-					Sync Constant Contact
+					<RefreshCw className={`mr-2 h-4 w-4 text-gray-900 group-hover:text-white ${isSyncing ? "animate-spin" : ""}`} />
+					{isSyncing ? "Syncing..." : "Sync Constant Contact"}
 				</Button>
 			</div>
 
