@@ -15,7 +15,6 @@ export class ConstantContactApiAdapter {
 		const getContactsFromConstantContact = await this.constantContactApi.getContacts(updated_after);
 		const contacts: Contact[] = getContactsFromConstantContact.map((contact) => {
 			const contactObj: Contact = {
-				id: contact.contact_id,
 				user_id: null,
 				first_name: contact.first_name,
 				last_name: contact.last_name,

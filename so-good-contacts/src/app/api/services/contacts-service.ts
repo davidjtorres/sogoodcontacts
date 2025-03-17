@@ -5,6 +5,8 @@ import { injectable, inject } from "inversify";
 import { Readable } from "stream";
 import { parseCSVStream, CSVRecord } from "@/app/api/utils/csv-parser";
 import { convertToDBObjectId } from "@/app/api/database/utils";
+import { UserRepository } from "@/app/api/repositories/user-repository";
+import { User } from "@/app/api/models/user";
 
 // Expected CSV headers for contact imports
 export const CONTACT_CSV_HEADERS = [
@@ -24,7 +26,8 @@ export const CONTACT_CSV_HEADERS = [
 export class ContactsService {
 	constructor(
 		@inject(ContactRepository) private readonly contactRepository: ContactRepository,
-		@inject(ConstantContactApiAdapter) private readonly constantContactApiAdapter: ConstantContactApiAdapter
+		@inject(ConstantContactApiAdapter) private readonly constantContactApiAdapter: ConstantContactApiAdapter,
+		@inject(UserRepository) private readonly userRepository: UserRepository
 	) {}
 
 	async getContacts(userId: string) {
@@ -60,7 +63,7 @@ export class ContactsService {
 			importedCount: result.count,
 			invalidCount: 0,
 			sampleData: result.data.slice(0, 5),
-			importToConstantContact
+			importToConstantContact,
 		};
 	}
 
@@ -71,7 +74,7 @@ export class ContactsService {
 	 * @returns Array of Contact objects
 	 */
 	private transformCSVToContacts(csvRecords: CSVRecord[], userId: string): Contact[] {
-		return csvRecords.map(record => {
+		return csvRecords.map((record) => {
 			return {
 				user_id: convertToDBObjectId(userId),
 				first_name: String(record.first_name || ""),
@@ -84,9 +87,9 @@ export class ContactsService {
 					city: String(record.city || ""),
 					state: String(record.state || ""),
 					zipcode: String(record.zipcode || ""),
-					country: String(record.country || "")
+					country: String(record.country || ""),
 				},
-				source: "so_good_contacts"
+				source: "so_good_contacts",
 			};
 		});
 	}
@@ -98,14 +101,13 @@ export class ContactsService {
 	 */
 	private async createContactsInBackground(contacts: Contact[], importToConstantContact = false): Promise<void> {
 		try {
-
 			// Create contacts in So Good Contacts
-			this.createContact(contacts).catch(error => {
+			this.createContact(contacts).catch((error) => {
 				console.error("Error creating contacts in background:", error);
 			});
 			// If importToConstantContact is true, also import to Constant Contact
 			if (importToConstantContact && contacts.length > 0) {
-				this.importContactsToConstantContact(contacts).catch(error => {
+				this.importContactsToConstantContact(contacts).catch((error) => {
 					console.error("Error importing contacts to Constant Contact:", error);
 				});
 			}
@@ -114,25 +116,52 @@ export class ContactsService {
 		}
 	}
 
-	// Get contact lists from Constant Contact
-	async getConstantContactContactLists() {
-		return this.constantContactApiAdapter.getContactLists();
-	}
-
-	// Get contacts from Constant Contact
-	async getContactsFromConstantContact() {
-		return this.constantContactApiAdapter.getContacts();
-	}
-
 	// Import contacts to Constant Contact
 	async importContactsToConstantContact(contacts: Contact[]) {
 		return this.constantContactApiAdapter.importContacts(contacts, ["3d0239cc-fb96-11ef-a1b4-fa163e123590"]);
 	}
 
-	// Sync contacts from Constant Contact to So Good Contacts
-	async syncConstantContactContacts() {
-		const contacts = await this.getContactsFromConstantContact();
-		this.contactRepository.create(contacts);
+	// Get contact lists from Constant Contact
+	async getContactLists() {
+		return this.constantContactApiAdapter.getContactLists();
+	}
+
+	/**
+	 * Sync contacts from Constant Contact to So Good Contacts
+	 * @param user The user to sync contacts for
+	 * @returns Object containing success status, count, and last synced timestamp
+	 */
+	async syncConstantContactContacts(user: User): Promise<{ success: boolean; count: number; last_synced_at: string }> {
+		try {
+			// Format last_synced_at as ISO string if it exists
+			const updated_after = user.last_synced_at ? new Date(user.last_synced_at).toISOString() : undefined;
+
+			// Fetch contacts from Constant Contact
+			const contacts = await this.constantContactApiAdapter.getContacts(updated_after);
+
+			//add user id to contacts
+			contacts.forEach((contact) => {
+				contact.user_id = convertToDBObjectId(user._id);
+			});
+
+			// Save contacts to database
+			if (contacts.length > 0) {
+				await this.contactRepository.create(contacts);
+			}
+
+			// Update user's last_synced_at timestamp
+			const now = new Date();
+			await this.userRepository.update({ _id: convertToDBObjectId(user._id) }, { last_synced_at: now });
+
+			return {
+				success: true,
+				count: contacts.length,
+				last_synced_at: now.toISOString(),
+			};
+		} catch (error) {
+			console.error("Error syncing contacts from Constant Contact:", error);
+			throw error;
+		}
 	}
 
 	async exportContacts() {

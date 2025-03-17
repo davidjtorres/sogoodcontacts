@@ -21,7 +21,7 @@ export class ConstantContactApi {
 	 * @returns Contacts list
 	 */
 	async getContacts(updated_after?: string): Promise<IConstantContactApiContact[]> {
-		const params = updated_after ? { updated_after } : {};
+		const params = { updated_after, include: "custom_fields,phone_numbers" };
 		const response = await this.httpClient.get(`/contacts`, { params });
 		return response.data.contacts;
 	}
