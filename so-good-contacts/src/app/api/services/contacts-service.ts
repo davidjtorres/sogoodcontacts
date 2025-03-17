@@ -4,6 +4,7 @@ import { ContactRepository } from "@/app/api/repositories/contact-repository";
 import { injectable, inject } from "inversify";
 import { Readable } from "stream";
 import { parseCSVStream, CSVRecord } from "@/app/api/utils/csv-parser";
+import { convertToDBObjectId } from "@/app/api/database/utils";
 
 // Expected CSV headers for contact imports
 export const CONTACT_CSV_HEADERS = [
@@ -43,21 +44,23 @@ export class ContactsService {
 	 * Parse a CSV file stream and import contacts
 	 * @param stream The readable stream containing CSV data
 	 * @param userId The user ID to associate with the imported contacts
+	 * @param importToConstantContact Whether to also import contacts to Constant Contact
 	 * @returns Object containing success status, count, and sample data
 	 */
-	async importContactsFromCSV(stream: Readable, userId: string) {
+	async importContactsFromCSV(stream: Readable, userId: string, importToConstantContact = false) {
 		// Parse the CSV stream
 		const result = await parseCSVStream(stream, CONTACT_CSV_HEADERS);
 		// Transform CSV records to Contact objects
 		const contacts = this.transformCSVToContacts(result.data, userId);
 		// Create contacts in the background
-		this.createContactsInBackground(contacts);
+		this.createContactsInBackground(contacts, importToConstantContact);
 		// Return result with sample data
 		return {
 			success: true,
 			importedCount: result.count,
 			invalidCount: 0,
-			sampleData: result.data.slice(0, 5)
+			sampleData: result.data.slice(0, 5),
+			importToConstantContact
 		};
 	}
 
@@ -70,7 +73,7 @@ export class ContactsService {
 	private transformCSVToContacts(csvRecords: CSVRecord[], userId: string): Contact[] {
 		return csvRecords.map(record => {
 			return {
-				user_id: userId,
+				user_id: convertToDBObjectId(userId),
 				first_name: String(record.first_name || ""),
 				last_name: String(record.last_name || ""),
 				email: String(record.email || ""),
@@ -91,15 +94,21 @@ export class ContactsService {
 	/**
 	 * Create contacts in the background without blocking
 	 * @param contacts The contacts to create
+	 * @param importToConstantContact Whether to also import contacts to Constant Contact
 	 */
-	private async createContactsInBackground(contacts: Contact[]): Promise<void> {
+	private async createContactsInBackground(contacts: Contact[], importToConstantContact = false): Promise<void> {
 		try {
-			// await for 4 seconds
-			await new Promise(resolve => setTimeout(resolve, 4000));
-			// Create contacts without awaiting to avoid blocking
+
+			// Create contacts in So Good Contacts
 			this.createContact(contacts).catch(error => {
 				console.error("Error creating contacts in background:", error);
 			});
+			// If importToConstantContact is true, also import to Constant Contact
+			if (importToConstantContact && contacts.length > 0) {
+				this.importContactsToConstantContact(contacts).catch(error => {
+					console.error("Error importing contacts to Constant Contact:", error);
+				});
+			}
 		} catch (error) {
 			console.error("Error processing contacts in background:", error);
 		}
@@ -116,8 +125,8 @@ export class ContactsService {
 	}
 
 	// Import contacts to Constant Contact
-	async importContacts(contacts: Contact[]) {
-		return this.constantContactApiAdapter.importContacts(contacts);
+	async importContactsToConstantContact(contacts: Contact[]) {
+		return this.constantContactApiAdapter.importContacts(contacts, ["3d0239cc-fb96-11ef-a1b4-fa163e123590"]);
 	}
 
 	// Sync contacts from Constant Contact to So Good Contacts
