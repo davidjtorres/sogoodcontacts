@@ -92,6 +92,7 @@ export class ConstantContactApiAdapter {
 				zip: contact.address.zipcode,
 				country: contact.address.country,
 			}),
+			"cf:integration_source": "so-good-contacts",
 		}));
 
 		return this.constantContactApi.importContacts(importContacts, listIds);
