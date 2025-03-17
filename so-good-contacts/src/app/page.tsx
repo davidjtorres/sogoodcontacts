@@ -12,6 +12,7 @@ import { ContactsPagination } from "@/components/ContactsPagination";
 export default function Home() {
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 	const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+	const [isExporting, setIsExporting] = useState(false);
 
 	const handleAddContact = () => {
 		// Refresh will happen automatically via the ContactsPagination component
@@ -26,6 +27,50 @@ export default function Home() {
 		toast({
 			title: "Import successful",
 			description: `${count} contacts have been imported.`,
+		});
+	};
+
+	const handleExport = async () => {
+		try {
+			setIsExporting(true);
+			// Start the export process
+			toast({
+				title: "Export started",
+				description: "Preparing your contacts for download...",
+			});
+			// Create a direct download link to the export API
+			const exportUrl = "/api/contacts/export";
+			// Create a temporary anchor element to trigger the download
+			const downloadLink = document.createElement("a");
+			downloadLink.href = exportUrl;
+			downloadLink.download = "contacts.csv";
+			// Append the link to the body, click it, and then remove it
+			document.body.appendChild(downloadLink);
+			downloadLink.click();
+			document.body.removeChild(downloadLink);
+			// Show success message
+			toast({
+				title: "Export successful",
+				description: "Your contacts are being downloaded.",
+			});
+		} catch (error) {
+			console.error("Error exporting contacts:", error);
+			// Show error message
+			toast({
+				title: "Export failed",
+				description: "Failed to export contacts. Please try again.",
+				variant: "destructive",
+			});
+		} finally {
+			setIsExporting(false);
+		}
+	};
+
+	const handleSyncConstantContact = () => {
+		// This will be implemented later
+		toast({
+			title: "Sync with Constant Contact",
+			description: "This feature is coming soon.",
 		});
 	};
 
@@ -52,11 +97,18 @@ export default function Home() {
 					<Upload className="mr-2 h-4 w-4 text-gray-900 group-hover:text-white" />
 					Import
 				</Button>
-				<Button className="bg-white text-gray-900 border-2 border-[#8B5CF6] hover:bg-[#8B5CF6] hover:text-white transition-colors">
+				<Button
+					className="bg-white text-gray-900 border-2 border-[#8B5CF6] hover:bg-[#8B5CF6] hover:text-white transition-colors"
+					onClick={handleExport}
+					disabled={isExporting}
+				>
 					<Download className="mr-2 h-4 w-4 text-gray-900 group-hover:text-white" />
-					Export
+					{isExporting ? "Exporting..." : "Export"}
 				</Button>
-				<Button className="bg-white text-gray-900 border-2 border-[#8B5CF6] hover:bg-[#8B5CF6] hover:text-white transition-colors">
+				<Button
+					className="bg-white text-gray-900 border-2 border-[#8B5CF6] hover:bg-[#8B5CF6] hover:text-white transition-colors"
+					onClick={handleSyncConstantContact}
+				>
 					<RefreshCw className="mr-2 h-4 w-4 text-gray-900 group-hover:text-white" />
 					Sync Constant Contact
 				</Button>
