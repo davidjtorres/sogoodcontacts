@@ -1,28 +1,8 @@
-
 import { Readable } from "stream";
 import Papa from "papaparse";
 
 export type CSVRecord = Record<string, string | number | boolean | null>;
 
-
-export function parseCSV(csv: string, expectedHeaders: string[]) {
-	const csvHeaders = csv.split("\n")[0].split(",");
-	if (csvHeaders.length !== expectedHeaders.length) {
-		throw new Error("Invalid CSV file");
-	}
-
-	expectedHeaders.forEach((header, index) => {
-		if (csvHeaders[index] !== header) {
-			throw new Error("Invalid CSV file");
-		}
-	});
-
-	const result = Papa.parse(csv, {
-		header: true,
-		skipEmptyLines: true,
-	});
-	return result.data;
-}
 
 /**
  * Parse a CSV stream efficiently
@@ -34,11 +14,9 @@ export async function parseCSVStream(
 	stream: Readable,
 	expectedHeaders: string[]
 ): Promise<{ success: boolean; count: number; data: CSVRecord[] }> {
-	console.log("Starting CSV stream parsing");
-
-
+	// First, read just enough to validate the headers
 	return new Promise((resolve, reject) => {
-
+		// Read the first chunk to validate headers
 		let headerBuffer = "";
 		let headerValidated = false;
 		let recordCount = 0;
@@ -54,6 +32,7 @@ export async function parseCSVStream(
 				const newlineIndex = headerBuffer.indexOf("\n");
 
 				if (newlineIndex !== -1) {
+					// We have a complete header line
 					const headerLine = headerBuffer.substring(0, newlineIndex).trim();
 					const headers = headerLine.split(",").map((h) => h.trim());
 
@@ -69,10 +48,11 @@ export async function parseCSVStream(
 					}
 
 					headerValidated = true;
-					console.log("CSV headers validated successfully");
 
+					// Now process the rest of the CSV
 					const csvContent = headerBuffer;
 
+					// Parse the CSV content we have so far
 					const results = Papa.parse(csvContent, {
 						header: true,
 						skipEmptyLines: true,
@@ -110,7 +90,6 @@ export async function parseCSVStream(
 		// Process the stream
 		stream.on("data", (chunk) => {
 			try {
-				console.log(`Processing chunk of size: ${chunk.length}`);
 				processChunk(chunk);
 			} catch (error) {
 				stream.destroy();
@@ -119,16 +98,15 @@ export async function parseCSVStream(
 		});
 
 		stream.on("end", () => {
-			console.log("Stream ended");
 			if (!headerValidated) {
 				reject(new Error("CSV file ended before headers could be validated"));
 			} else {
-				console.log(`CSV parsing complete: ${recordCount} records processed`);
-				resolve({
+				const result = {
 					success: true,
 					count: recordCount,
-					data: allRecords,
-				});
+					data: allRecords
+				};
+				resolve(result);
 			}
 		});
 

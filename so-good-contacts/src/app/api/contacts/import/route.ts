@@ -1,22 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Readable } from "stream";
-import { parseCSVStream } from "@/app/api/utils/csv-parser";
 import { getContainer } from "@/app/api/inversify.config";
 import { ContactsService } from "@/app/api/services/contacts-service";
-
-// Expected CSV headers
-const EXPECTED_HEADERS = [
-	"first_name",
-	"last_name",
-	"email",
-	"phone_number",
-	"address_line_1",
-	"address_line_2",
-	"city",
-	"state",
-	"zipcode",
-	"country",
-];
 
 // Mock user for development
 const authUser = {
@@ -29,7 +14,6 @@ const authUser = {
 export async function POST(request: NextRequest) {
 	try {
 		const contentType = request.headers.get("content-type") || "";
-		console.log(`Content-Type: ${contentType}`);
 
 		// Verify content type is multipart/form-data
 		if (!contentType.includes("multipart/form-data")) {
@@ -50,7 +34,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Check file size (2MB limit)
-		const MAX_SIZE = 5 * 1024 * 1024; // 2MB
+		const MAX_SIZE = 2 * 1024 * 1024; // 2MB
 		if (file.size > MAX_SIZE) {
 			return NextResponse.json(
 				{ error: `File size exceeds the 2MB limit (${(file.size / (1024 * 1024)).toFixed(2)}MB)` },
@@ -63,25 +47,15 @@ export async function POST(request: NextRequest) {
 		const buffer = Buffer.from(arrayBuffer);
 		const stream = Readable.from(buffer);
 
-		// Parse the CSV stream
-		const result = await parseCSVStream(stream, EXPECTED_HEADERS);
-
 		// Get the container and service
 		const container = await getContainer(authUser);
 		const contactsService = container.get<ContactsService>(ContactsService);
 
-		// Log success but don't wait for contacts to be created
-		// This allows us to return a quick response to the client
-		processContactsInBackground(contactsService, result.data, authUser.id);
+		// Process the CSV import using the service
+		const result = await contactsService.importContactsFromCSV(stream, authUser.id);
 
 		// Return success response
-		return NextResponse.json({
-			success: true,
-			importedCount: result.count,
-			invalidCount: 0,
-			// Return a sample of the first 5 records for preview
-			sampleData: result.data.slice(0, 5),
-		});
+		return NextResponse.json(result);
 	} catch (error) {
 		console.error("Error processing CSV import:", error);
 		return NextResponse.json(
@@ -97,19 +71,4 @@ export async function POST(request: NextRequest) {
 async function parseFormData(request: NextRequest): Promise<FormData> {
 	const formData = await request.formData();
 	return formData;
-}
-
-/**
- * Process contacts in the background without blocking the response
- */
-async function processContactsInBackground(
-	contactsService: ContactsService,
-	contactsData: Contact[],
-	userId: string
-): Promise<void> {
-	try {
-		await contactsService.createContact(contactsData);
-	} catch (error) {
-		console.error("Error processing contacts in background:", error);
-	}
 }
