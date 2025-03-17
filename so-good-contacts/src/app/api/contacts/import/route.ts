@@ -3,7 +3,7 @@ import { Readable } from "stream";
 import { getContainer } from "@/app/api/inversify.config";
 import { ContactsService } from "@/app/api/services/contacts-service";
 import { withAuth } from "@/app/api/middleware/auth-middleware";
-import { User } from "@/app/api/repositories/user-repository";
+import { User } from "@/app/api/models/user";
 
 export const POST = withAuth(async (request: NextRequest, user: User) => {
 	try {
@@ -19,7 +19,6 @@ export const POST = withAuth(async (request: NextRequest, user: User) => {
 		const file = formData.get("file") as File;
 		// Check if we should import to Constant Contact from query params
 		const importToConstantContact = request.nextUrl.searchParams.get("import_to_constant_contact") === "true";
-        console.log("importToConstantContact", importToConstantContact);
 
 		if (!file) {
 			return NextResponse.json({ error: "No file provided" }, { status: 400 });

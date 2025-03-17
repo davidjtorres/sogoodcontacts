@@ -2,7 +2,7 @@ import { getContainer } from "@/app/api/inversify.config";
 import { ContactsService } from "@/app/api/services/contacts-service";
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/app/api/middleware/auth-middleware";
-import { User } from "@/app/api/repositories/user-repository";
+import { User } from "@/app/api/models/user";
 
 export const GET = withAuth(async (request: NextRequest, user: User) => {
 	try {

@@ -1,16 +1,8 @@
 import { injectable, inject } from "inversify";
 import { ObjectId, Db } from "mongodb";
 import { IRepository } from "./interfaces";
+import { User } from "@/app/api/models/user";
 
-export type User = {
-	id?: string | ObjectId;
-	_id?: ObjectId;
-	name: string;
-	email: string;
-	constant_contact_token?: string;
-	created_at?: Date;
-	updated_at?: Date;
-};
 
 @injectable()
 export class UserRepository implements IRepository<User> {
@@ -18,63 +10,50 @@ export class UserRepository implements IRepository<User> {
 
 	constructor(@inject("Database") private db: Db) {}
 
-	async create(data: User | User[]): Promise<string | string[]> {
-		const now = new Date();
+	async create(data: User): Promise<string | string[]> {
 
-		if (Array.isArray(data)) {
-			const usersToInsert = data.map((user) => ({
-				...user,
-				created_at: now,
-				updated_at: now,
-			}));
-
-			const result = await this.db.collection(this.collectionName).insertMany(usersToInsert);
-			return Object.values(result.insertedIds).map((id) => id.toString());
-		}
-
-		const userToInsert = {
-			...data,
-			created_at: now,
-			updated_at: now,
-		};
-
-		const result = await this.db.collection(this.collectionName).insertOne(userToInsert);
+		const result = await this.db.collection<User>(this.collectionName).insertOne(data);
 		return result.insertedId.toString();
 	}
 
 	async findAll(query?: Record<string, unknown>): Promise<User[]> {
-		const users = await this.db
-			.collection(this.collectionName)
-			.find(query || {})
-			.toArray();
+		const users = await this.db.collection<User>(this.collectionName).find(query || {}).toArray();
 
-		return users.map((user) => ({
-			...user,
-			id: user._id.toString(),
-		})) as User[];
+		return users.map((user) => {
+			const { _id, ...rest } = user;
+			const idString = _id?.toString();
+			return {
+				...rest,
+				_id: idString,
+				id: idString,
+			} as User;
+		});
 	}
 
 	async findOne(query: Record<string, unknown>): Promise<User | null> {
-		const user = await this.db.collection(this.collectionName).findOne(query);
-
+		const user = await this.db.collection<User>(this.collectionName).findOne(query);
 		if (!user) {
 			return null;
 		}
-
+		const { _id, ...rest } = user;
+		const idString = _id?.toString();
 		return {
-			...user,
-			id: user._id.toString(),
+			...rest,
+			_id: idString,
+			id: idString,
 		} as User;
 	}
 
 	async update(query: Record<string, unknown>, data: Partial<User>): Promise<{ modifiedCount: number }> {
+		// Remove _id from data if it exists to avoid MongoDB errors
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		const { _id, id, ...updateData } = data;
 		const result = await this.db.collection(this.collectionName).updateOne(query, {
 			$set: {
-				...data,
+				...updateData,
 				updated_at: new Date(),
 			},
 		});
-
 		return { modifiedCount: result.modifiedCount };
 	}
 
@@ -93,4 +72,7 @@ export class UserRepository implements IRepository<User> {
 		}
 	}
 
+	async findByEmail(email: string): Promise<User | null> {
+		return this.findOne({ email });
+	}
 }

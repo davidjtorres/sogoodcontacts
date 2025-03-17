@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRepository } from "@/app/api/repositories/user-repository";
 import { createBaseContainer } from "@/app/api/inversify.config";
-import { User } from "@/app/api/repositories/user-repository";
+import { User } from "@/app/api/models/user";
 
 /**
  * Authentication middleware that simulates a logged-in user

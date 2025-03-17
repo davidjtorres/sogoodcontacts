@@ -7,7 +7,7 @@ import { UserRepository } from "@/app/api/repositories/user-repository";
 import { ConstantContactApi } from "@/app/api/constant-contact-gateway/constant-contact-api";
 import { ConstantContactApiAdapter } from "@/app/api/constant-contact-gateway/constant-contact-api-adapter";
 import axios from "axios";
-import { User } from "./models/user";
+import { User } from "@/app/api/models/user";
 import { ContactsService } from "./services/contacts-service";
 
 // Create a container without user context for auth middleware
