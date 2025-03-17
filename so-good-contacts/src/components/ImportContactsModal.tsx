@@ -105,8 +105,12 @@ export default function ImportContactsModal({ isOpen, onClose, onImportComplete 
 				});
 			}, 300);
 
+			// Always use Constant Contact integration
+			const url = new URL("/api/contacts/import", window.location.origin);
+			url.searchParams.append("import_to_constant_contact", "true");
+
 			// Send the file to the server
-			const response = await fetch("/api/contacts/import", {
+			const response = await fetch(url.toString(), {
 				method: "POST",
 				body: formData,
 			});
@@ -122,9 +126,11 @@ export default function ImportContactsModal({ isOpen, onClose, onImportComplete 
 			const data = await response.json();
 
 			// Show success message
+			const importMessage = `${data.importedCount} contacts have been imported and will be synced to Constant Contact.`;
+
 			toast({
 				title: "Import successful",
-				description: `${data.importedCount} contacts have been imported.`,
+				description: importMessage,
 			});
 
 			// Notify parent component
@@ -174,6 +180,7 @@ export default function ImportContactsModal({ isOpen, onClose, onImportComplete 
 								onChange={handleFileInputChange}
 								className="sr-only"
 								id="file-upload"
+								ref={fileInputRef}
 								data-testid="file-input"
 							/>
 
