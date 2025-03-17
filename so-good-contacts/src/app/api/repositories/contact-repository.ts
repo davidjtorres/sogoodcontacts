@@ -33,8 +33,8 @@ export class ContactRepository implements IRepository<Contact> {
 	}
 
 	async findByUserId(userId: string): Promise<Contact[]> {
-		const contacts = await this.findWithCursor({ user_id: new ObjectId(userId) });
-		return contacts.contacts;
+		const result = await this.findWithPagination({ user_id: new ObjectId(userId) });
+		return result.contacts;
 	}
 
 	/**
