@@ -4,28 +4,68 @@ import { Contact } from "@/app/api/models/contact";
 import {
 	IConstantContactApiContact,
 	IConstantContactApiImportContact,
-	IConstantContactApiContactList,
 } from "./contant-contact-gateway.interfaces";
 
 @injectable()
 export class ConstantContactApiAdapter {
 	constructor(@inject(ConstantContactApi) private readonly constantContactApi: ConstantContactApi) {}
 
+	/**
+	 * Get contacts from Constant Contact
+	 * Note: For large datasets, consider using getAllContactsInBatches instead
+	 * @param updated_after - Returns contacts updated after the specified date
+	 * @returns List of contacts
+	 */
 	async getContacts(updated_after?: string): Promise<Contact[]> {
-		const getContactsFromConstantContact = await this.constantContactApi.getContacts(updated_after);
-		const contacts: Contact[] = getContactsFromConstantContact.map((contact) => {
-			const contactObj: Contact = {
-				user_id: null,
-				first_name: contact.first_name,
-				last_name: contact.last_name,
-				email: contact.email_address.address,
-				phone_number: contact?.phone_numbers?.[0]?.phone_number,
-				source: "constant_contact",
-			};
-			return contactObj;
-		});
+		const result = await this.constantContactApi.getContacts(updated_after);
+		return this.mapApiContactsToContacts(result.contacts);
+	}
 
-		return contacts;
+	/**
+	 * Maps Constant Contact API contacts to our Contact model
+	 * @param apiContacts - Contacts from Constant Contact API
+	 * @returns List of contacts in our model format
+	 */
+	private mapApiContactsToContacts(apiContacts: IConstantContactApiContact[]): Contact[] {
+		return apiContacts.map((contact) => ({
+			user_id: null,
+			first_name: contact.first_name,
+			last_name: contact.last_name,
+			email: contact.email_address.address,
+			phone_number: contact?.phone_numbers?.[0]?.phone_number,
+			source: "constant_contact",
+		}));
+	}
+
+	/**
+	 * Get all contacts from Constant Contact with automatic pagination
+	 * Processes contacts in batches to handle large datasets
+	 * @param updated_after - Returns contacts updated after the specified date
+	 * @param batchProcessor - Function to process each batch of contacts
+	 * @returns Total number of contacts processed
+	 */
+	async getAllContactsInBatches(
+		updated_after?: string,
+		batchProcessor?: (contacts: Contact[], batchNumber: number) => Promise<void>
+	): Promise<number> {
+		let totalContacts = 0;
+
+		// Use the batch callback to process contacts in chunks
+		await this.constantContactApi.getAllContacts(
+			updated_after,
+			async (apiContacts, batchNumber) => {
+				// Convert API contacts to our contact model
+				const contacts = this.mapApiContactsToContacts(apiContacts);
+				totalContacts += contacts.length;
+
+				// Process the batch if a processor is provided
+				if (batchProcessor) {
+					await batchProcessor(contacts, batchNumber);
+				}
+			}
+		);
+
+		return totalContacts;
 	}
 
 	async createContact(contact: Contact): Promise<Contact> {
@@ -98,11 +138,6 @@ export class ConstantContactApiAdapter {
 	}
 
 	async getContactLists() {
-		const lists = await this.constantContactApi.getContactLists();
-
-		return lists.map((list: IConstantContactApiContactList) => ({
-			id: list.id,
-			name: list.name,
-		}));
+		return this.constantContactApi.getContactLists();
 	}
 }

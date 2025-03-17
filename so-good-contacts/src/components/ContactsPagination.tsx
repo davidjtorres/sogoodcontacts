@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Contact } from "@/app/api/models/contact";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, RefreshCw } from "lucide-react";
 
 interface PaginationResponse {
 	contacts: Contact[];
@@ -12,6 +12,20 @@ interface PaginationResponse {
 	totalPages: number;
 	currentPage: number;
 }
+
+// Create a singleton to store the refresh function across components
+export const ContactsRefreshManager = {
+	refreshFunction: null as null | (() => Promise<void>),
+	setRefreshFunction(fn: () => Promise<void>) {
+		this.refreshFunction = fn;
+	},
+	refresh() {
+		if (this.refreshFunction) {
+			return this.refreshFunction();
+		}
+		return Promise.resolve();
+	}
+};
 
 export function ContactsPagination() {
 	const [contacts, setContacts] = useState<Contact[]>([]);
@@ -25,33 +39,39 @@ export function ContactsPagination() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [totalCount, setTotalCount] = useState(0);
 
-	useEffect(() => {
-		const fetchContacts = async () => {
-			setLoading(true);
-			setError(null);
-			try {
-				const response = await fetch(
-					`/api/contacts?page=${currentPage}&pageSize=${pageSize}&sortField=${sortField}&sortDirection=${sortDirection}`
-				);
+	const fetchContacts = useCallback(async () => {
+		setLoading(true);
+		setError(null);
+		try {
+			const response = await fetch(
+				`/api/contacts?page=${currentPage}&pageSize=${pageSize}&sortField=${sortField}&sortDirection=${sortDirection}`
+			);
 
-				if (!response.ok) {
-					throw new Error(`Error: ${response.status}`);
-				}
-
-				const data: PaginationResponse = await response.json();
-				setContacts(data.contacts);
-				setTotalPages(data.totalPages);
-				setCurrentPage(data.currentPage);
-				setTotalCount(data.totalCount);
-			} catch (err) {
-				setError(err instanceof Error ? err.message : "An error occurred");
-				console.error("Error fetching contacts:", err);
-			} finally {
-				setLoading(false);
+			if (!response.ok) {
+				throw new Error(`Error: ${response.status}`);
 			}
-		};
-		fetchContacts();
+
+			const data: PaginationResponse = await response.json();
+			setContacts(data.contacts);
+			setTotalPages(data.totalPages);
+			setCurrentPage(data.currentPage);
+			setTotalCount(data.totalCount);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "An error occurred");
+			console.error("Error fetching contacts:", err);
+		} finally {
+			setLoading(false);
+		}
 	}, [currentPage, pageSize, sortField, sortDirection]);
+
+	// Register the refresh function with the singleton manager
+	useEffect(() => {
+		ContactsRefreshManager.setRefreshFunction(fetchContacts);
+	}, [fetchContacts]);
+
+	useEffect(() => {
+		fetchContacts();
+	}, [fetchContacts]);
 
 	const handlePageChange = (newPage: number) => {
 		setCurrentPage(Math.max(1, Math.min(newPage, totalPages)));
@@ -90,7 +110,19 @@ export function ContactsPagination() {
 			<div>
 				<div className="flex items-center justify-between">
 					<h2 className="text-2xl font-bold">Contacts</h2>
-					<div className="text-sm text-gray-500">{totalCount} total contacts</div>
+					<div className="flex items-center space-x-2">
+						<Button
+							onClick={fetchContacts}
+							variant="outline"
+							size="sm"
+							className="border-[#8B5CF6] text-[#8B5CF6] hover:bg-[#8B5CF6] hover:text-white"
+							disabled={loading}
+						>
+							<RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
+							Refresh
+						</Button>
+						<div className="text-sm text-gray-500">{totalCount} total contacts</div>
+					</div>
 				</div>
 
 				{error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mt-4">{error}</div>}

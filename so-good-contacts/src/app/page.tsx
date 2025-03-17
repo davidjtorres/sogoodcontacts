@@ -2,18 +2,36 @@
 
 import { Button } from "@/components/ui/button";
 import { Download, Upload, RefreshCw, UserPlus } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AddContactModal from "@/components/AddContactModal";
 import ImportContactsModal from "@/components/ImportContactsModal";
 import { Toaster } from "@/components/ui/toaster";
 import { toast } from "@/components/ui/use-toast";
-import { ContactsPagination } from "@/components/ContactsPagination";
+import { ContactsPagination, ContactsRefreshManager } from "@/components/ContactsPagination";
 
 export default function Home() {
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 	const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 	const [isExporting, setIsExporting] = useState(false);
 	const [isSyncing, setIsSyncing] = useState(false);
+	const [syncJob, setSyncJob] = useState<{
+		job_id: string;
+		status: string;
+		progress_percentage?: number;
+		processed_contacts?: number;
+		total_contacts?: number;
+	} | null>(null);
+
+	// Clean up any polling interval when component unmounts
+	useEffect(() => {
+		const intervalId: NodeJS.Timeout | null = null;
+
+		return () => {
+			if (intervalId) {
+				clearInterval(intervalId);
+			}
+		};
+	}, []);
 
 	const handleAddContact = () => {
 		// Refresh will happen automatically via the ContactsPagination component
@@ -75,24 +93,40 @@ export default function Home() {
 				title: "Sync started",
 				description: "Syncing contacts with Constant Contact...",
 			});
+
 			// Call the sync API endpoint
 			const response = await fetch("/api/contacts/sync", {
 				method: "POST",
 			});
+
 			if (!response.ok) {
 				const errorData = await response.json();
 				throw new Error(errorData.error || "Failed to sync contacts");
 			}
+
 			const result = await response.json();
-			// Show success message with the number of contacts synced
-			toast({
-				title: "Sync successful",
-				description: `${result.count} contacts have been synced from Constant Contact.`,
-			});
-			// Refresh the contacts list
-			// This will trigger automatically if using a global state management or SWR/React Query
-			// For now, we can trigger a page refresh
-			window.location.reload();
+			const jobId = result.job_id;
+
+			if (jobId) {
+				// If we got a job ID, this is running as a background job
+				toast({
+					title: "Sync initiated",
+					description: "Contact synchronization has started and will continue in the background.",
+				});
+
+				// Start polling for status updates
+				startPollingJobStatus(jobId);
+			} else {
+				// For backward compatibility with direct sync
+				toast({
+					title: "Sync successful",
+					description: `${result.count || 0} contacts have been synced from Constant Contact.`,
+				});
+
+				// Refresh the contacts programmatically
+				await ContactsRefreshManager.refresh();
+				setIsSyncing(false);
+			}
 		} catch (error) {
 			console.error("Error syncing contacts:", error);
 			// Show error message
@@ -101,9 +135,77 @@ export default function Home() {
 				description: error instanceof Error ? error.message : "Failed to sync contacts. Please try again.",
 				variant: "destructive",
 			});
-		} finally {
 			setIsSyncing(false);
 		}
+	};
+
+	const startPollingJobStatus = (jobId: string) => {
+		let consecutiveErrors = 0;
+		// Poll the job status every 2 seconds
+		const intervalId = setInterval(async () => {
+			try {
+				const response = await fetch(`/api/contacts/sync?jobId=${jobId}`);
+				if (!response.ok) {
+					throw new Error("Failed to get job status");
+				}
+
+				const status = await response.json();
+
+				// Update state with the job status
+				setSyncJob(status);
+
+				// Update sync button state
+				if (status.status === "in_progress") {
+					setIsSyncing(true);
+				} else {
+					setIsSyncing(false);
+				}
+
+				// If the job is completed or failed, stop polling and show notification
+				if (status.status === "completed" || status.status === "failed") {
+					clearInterval(intervalId);
+
+					if (status.status === "completed") {
+						// If completed, refresh contacts and show success message
+						await ContactsRefreshManager.refresh();
+
+						toast({
+							title: "Sync completed",
+							description: `${status.processed_contacts || 0} contacts have been synced from Constant Contact.`,
+						});
+					} else if (status.status === "failed") {
+						toast({
+							title: "Sync failed",
+							description: status.error || "Failed to sync contacts. Please try again.",
+							variant: "destructive",
+						});
+					}
+
+					// Clear job status after a delay
+					setTimeout(() => setSyncJob(null), 5000);
+				}
+
+				// Reset error counter on success
+				consecutiveErrors = 0;
+			} catch (error) {
+				console.error("Error polling job status:", error);
+				consecutiveErrors++;
+
+				// Stop polling after 3 consecutive errors
+				if (consecutiveErrors >= 3) {
+					clearInterval(intervalId);
+					setIsSyncing(false);
+					toast({
+						title: "Sync status unavailable",
+						description: "Unable to get sync status. The sync may still be in progress.",
+						variant: "destructive",
+					});
+				}
+			}
+		}, 2000);
+
+		// Store the interval ID to clear it later if needed
+		return intervalId;
 	};
 
 	return (
@@ -142,8 +244,16 @@ export default function Home() {
 					onClick={handleSyncConstantContact}
 					disabled={isSyncing}
 				>
-					<RefreshCw className={`mr-2 h-4 w-4 text-gray-900 group-hover:text-white ${isSyncing ? "animate-spin" : ""}`} />
-					{isSyncing ? "Syncing..." : "Sync Constant Contact"}
+					<RefreshCw
+						className={`mr-2 h-4 w-4 text-gray-900 group-hover:text-white ${isSyncing ? "animate-spin" : ""}`}
+					/>
+					{isSyncing
+						? syncJob && syncJob.total_contacts && syncJob.total_contacts > 0
+							? `Syncing... ${syncJob.processed_contacts || 0}/${syncJob.total_contacts} (${
+									syncJob.progress_percentage || 0
+							  }%)`
+							: "Syncing..."
+						: "Sync Constant Contact"}
 				</Button>
 			</div>
 

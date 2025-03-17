@@ -7,6 +7,7 @@ import { parseCSVStream, CSVRecord } from "@/app/api/utils/csv-parser";
 import { convertToDBObjectId } from "@/app/api/database/utils";
 import { UserRepository } from "@/app/api/repositories/user-repository";
 import { User } from "@/app/api/models/user";
+import { jobStatusTracker, JobStatus } from "@/app/api/services/job-status-tracker";
 
 // Expected CSV headers for contact imports
 export const CONTACT_CSV_HEADERS = [
@@ -156,6 +157,9 @@ export class ContactsService {
 
 	/**
 	 * Sync contacts from Constant Contact to So Good Contacts
+	 * Note: This method is suitable for small to medium syncs (up to a few hundred contacts)
+	 * For larger syncs, use startBulkConstantContactSync instead
+	 *
 	 * @param user The user to sync contacts for
 	 * @returns Object containing success status, count, and last synced timestamp
 	 */
@@ -197,6 +201,151 @@ export class ContactsService {
 			console.error("Error syncing contacts from Constant Contact:", error);
 			throw error;
 		}
+	}
+
+	/**
+	 * Start a bulk sync process for retrieving all contacts from Constant Contact
+	 * This method processes contacts in batches to efficiently handle large datasets
+	 * @param user The user to sync contacts for
+	 * @returns Object containing job information and initial status
+	 */
+	async startBulkConstantContactSync(user: User): Promise<{
+		success: boolean;
+		message: string;
+		job_id: string;
+		status: string;
+	}> {
+		try {
+			// Create a new job in the job status tracker
+			const userId = String(user._id || user.id);
+			const job = jobStatusTracker.createJob(userId, "constant_contact_sync");
+
+			// Start the background process
+			this.processBulkSyncInBackground(user, job.job_id);
+
+			return {
+				success: true,
+				message: "Bulk sync started. This process will continue in the background.",
+				job_id: job.job_id,
+				status: job.status,
+			};
+		} catch (error) {
+			console.error("Error starting bulk sync:", error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Process the bulk sync in the background
+	 * This method runs asynchronously without blocking the user request
+	 *
+	 * @param user The user to sync contacts for
+	 * @param jobId The ID of the sync job
+	 */
+	private async processBulkSyncInBackground(user: User, jobId: string): Promise<void> {
+		// Format last_synced_at as ISO string if it exists
+		const updated_after = user.last_synced_at ? new Date(user.last_synced_at).toISOString() : undefined;
+		let totalProcessed = 0;
+		let batchErrors = 0;
+
+		try {
+			// Update job status to in_progress
+			jobStatusTracker.updateJob(jobId, { status: "in_progress" });
+
+			// Process contacts in batches
+			const totalContacts = await this.constantContactApiAdapter.getAllContactsInBatches(
+				updated_after,
+				async (contacts, batchNumber) => {
+					try {
+						// Add user ID to all contacts
+						contacts.forEach((contact) => {
+							if (user._id) {
+								contact.user_id = convertToDBObjectId(String(user._id));
+							} else if (user.id) {
+								contact.user_id = convertToDBObjectId(String(user.id));
+							}
+						});
+
+						// Save contacts to database in batches
+						await this.contactRepository.create(contacts);
+
+						// Update counts
+						totalProcessed += contacts.length;
+
+						// Update job status
+						jobStatusTracker.updateJob(jobId, {
+							processed_contacts: totalProcessed,
+						});
+
+						console.log(`Processed batch ${batchNumber}, total processed: ${totalProcessed}`);
+					} catch (error) {
+						console.error(`Error processing batch ${batchNumber}:`, error);
+						batchErrors++;
+
+						// Update error count in job status
+						jobStatusTracker.updateJob(jobId, {
+							failed_contacts: batchErrors,
+						});
+					}
+				}
+			);
+
+			// Update job status with total contacts
+			jobStatusTracker.updateJob(jobId, {
+				total_contacts: totalContacts,
+			});
+
+			// Update user's last_synced_at timestamp
+			const now = new Date();
+			const userId = user._id || user.id;
+			if (userId) {
+				await this.userRepository.update({ _id: convertToDBObjectId(String(userId)) }, { last_synced_at: now });
+			}
+
+			// Mark job as completed
+			jobStatusTracker.completeJob(jobId, {
+				total: totalContacts,
+				processed: totalProcessed,
+				failed: batchErrors,
+			});
+
+			console.log(
+				`Sync job ${jobId} completed. Processed ${totalProcessed}/${totalContacts} contacts with ${batchErrors} batch errors.`
+			);
+		} catch (error) {
+			// Mark job as failed
+			const errorMessage = error instanceof Error ? error.message : "Unknown error";
+			jobStatusTracker.failJob(jobId, errorMessage);
+			console.error(`Sync job ${jobId} failed:`, error);
+		}
+	}
+
+	/**
+	 * Get the status of a bulk sync job
+	 *
+	 * @param jobId The ID of the sync job
+	 * @returns The current status of the job
+	 */
+	async getBulkSyncStatus(jobId: string): Promise<JobStatus> {
+		// Get job status from tracker
+		const job = jobStatusTracker.getJob(jobId);
+
+		if (!job) {
+			// Return a default response if job not found
+			return {
+				job_id: jobId,
+				status: "not_found",
+				type: "unknown",
+				total_contacts: 0,
+				processed_contacts: 0,
+				failed_contacts: 0,
+				progress_percentage: 0,
+				start_time: new Date(),
+				last_updated: new Date(),
+			};
+		}
+
+		return job;
 	}
 
 	async exportContacts() {

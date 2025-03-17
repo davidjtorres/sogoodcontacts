@@ -64,7 +64,10 @@ describe("ConstantContactApi", () => {
 		});
 		const contacts = await constantContactApi.getContacts();
 		expect(contacts).toBeDefined();
-		expect(contacts).toEqual(mockContacts);
+		expect(contacts).toEqual({
+			contacts: mockContacts,
+			nextPageUrl: null,
+		});
 	});
 
 	it("should get contacts with updated_after", async () => {
@@ -83,7 +86,10 @@ describe("ConstantContactApi", () => {
 		});
 		const contacts = await constantContactApi.getContacts("2025-01-01");
 		expect(contacts).toBeDefined();
-		expect(contacts).toEqual(mockContacts);
+		expect(contacts).toEqual({
+			contacts: mockContacts,
+			nextPageUrl: null,
+		});
 	});
 
 	it("should get contact lists", async () => {
