@@ -37,63 +37,72 @@ export class ContactRepository implements IRepository<Contact> {
 		return contacts.contacts;
 	}
 
-	async findWithCursor(
+	/**
+	 * Find contacts with pagination using MongoDB $facet for efficiency
+	 * @param query Query to filter contacts
+	 * @param page Page number (1-based)
+	 * @param pageSize Number of items per page
+	 * @param sortField Field to sort by
+	 * @param sortDirection Sort direction (1 for ascending, -1 for descending)
+	 * @returns Paginated contacts with metadata
+	 */
+	async findWithPagination(
 		query: Record<string, unknown> = {},
-		limit: number = 20,
-		cursor?: string,
+		page: number = 1,
+		pageSize: number = 20,
 		sortField: string = "_id",
 		sortDirection: 1 | -1 = 1
-	): Promise<{ contacts: Contact[]; nextCursor: string | null }> {
-		// Create a copy of the query to avoid modifying the original
-		const queryWithCursor = { ...query };
+	): Promise<{ contacts: Contact[]; totalCount: number; totalPages: number; currentPage: number }> {
+		// Ensure page is at least 1
+		const currentPage = Math.max(1, page);
+		// Calculate skip value based on page and pageSize
+		const skip = (currentPage - 1) * pageSize;
 
-		// If cursor is provided, add it to the query
-		if (cursor) {
-			// Convert cursor to ObjectId if the sort field is _id
-			const cursorValue = sortField === "_id" ? new ObjectId(cursor) : cursor;
-
-			// Add cursor condition to query based on sort direction
-			if (sortDirection === 1) {
-				queryWithCursor[sortField] = { $gt: cursorValue };
-			} else {
-				queryWithCursor[sortField] = { $lt: cursorValue };
-			}
-		}
-
-		// Execute the query with sorting and limit
-		const contacts = await this.db
+		// Use $facet to get both data and count in a single query
+		const result = await this.db
 			.collection<Contact>(this.collection)
-			.find(queryWithCursor)
-			.sort({ [sortField]: sortDirection })
-			.limit(limit + 1) // Fetch one extra to determine if there are more results
+			.aggregate([
+				// Match stage - apply the query filter
+				{ $match: query },
+				// Facet stage - run multiple aggregation pipelines
+				{
+					$facet: {
+						// Pipeline for paginated data
+						data: [
+							// Sort the documents
+							{ $sort: { [sortField]: sortDirection } },
+							// Skip for pagination
+							{ $skip: skip },
+							// Limit the number of documents
+							{ $limit: pageSize }
+						],
+						// Pipeline for total count
+						count: [
+							// Count the total documents
+							{ $count: "total" }
+						]
+					}
+				}
+			])
 			.toArray();
 
-		// Determine if there are more results
-		const hasMore = contacts.length > limit;
-		// Remove the extra item if there are more results
-		const paginatedContacts = hasMore ? contacts.slice(0, limit) : contacts;
-
-		// Get the next cursor from the last item
-		let nextCursor = null;
-		if (hasMore && paginatedContacts.length > 0) {
-			const lastItem = paginatedContacts[paginatedContacts.length - 1];
-			nextCursor =
-				sortField === "_id"
-					? lastItem._id.toString()
-					: lastItem[sortField as keyof typeof lastItem] != null
-					? String(lastItem[sortField as keyof typeof lastItem])
-					: null;
-		}
+		// Extract data and count from result
+		const facetResult = result[0];
+		const contacts = facetResult.data || [];
+		const totalCount = facetResult.count[0]?.total || 0;
+		const totalPages = Math.ceil(totalCount / pageSize);
 
 		// Map the contacts to include string IDs
-		const mappedContacts = paginatedContacts.map((contact) => ({
+		const mappedContacts = contacts.map((contact: { _id: ObjectId } & Omit<Contact, 'id'>) => ({
 			...contact,
-			id: contact._id.toString(),
+			id: contact._id.toString()
 		}));
 
 		return {
 			contacts: mappedContacts,
-			nextCursor,
+			totalCount,
+			totalPages,
+			currentPage
 		};
 	}
 

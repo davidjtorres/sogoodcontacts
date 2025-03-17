@@ -38,6 +38,34 @@ export class ContactsService {
 		return this.contactRepository.findByUserId(userId);
 	}
 
+	/**
+	 * Get contacts with page-based pagination
+	 * @param userId User ID to filter contacts
+	 * @param page Page number (1-based)
+	 * @param pageSize Number of items per page
+	 * @param sortField Field to sort by
+	 * @param sortDirection Sort direction (1 for ascending, -1 for descending)
+	 * @returns Paginated contacts with metadata
+	 */
+	async getContactsWithPagination(
+		userId: string | undefined,
+		page: number = 1,
+		pageSize: number = 20,
+		sortField: string = "_id",
+		sortDirection: 1 | -1 = 1
+	) {
+		if (!userId) {
+			throw new Error("User ID is required");
+		}
+		return this.contactRepository.findWithPagination(
+			{ user_id: convertToDBObjectId(userId) },
+			page,
+			pageSize,
+			sortField,
+			sortDirection
+		);
+	}
+
 	// Create contact in So Good Contacts
 	async createContact(contact: Contact | Contact[]) {
 		return this.contactRepository.create(contact);
@@ -139,9 +167,13 @@ export class ContactsService {
 			// Fetch contacts from Constant Contact
 			const contacts = await this.constantContactApiAdapter.getContacts(updated_after);
 
-			//add user id to contacts
+			// Add user id to contacts
 			contacts.forEach((contact) => {
-				contact.user_id = convertToDBObjectId(user._id);
+				if (user._id) {
+					contact.user_id = convertToDBObjectId(String(user._id));
+				} else if (user.id) {
+					contact.user_id = convertToDBObjectId(String(user.id));
+				}
 			});
 
 			// Save contacts to database
@@ -151,7 +183,10 @@ export class ContactsService {
 
 			// Update user's last_synced_at timestamp
 			const now = new Date();
-			await this.userRepository.update({ _id: convertToDBObjectId(user._id) }, { last_synced_at: now });
+			const userId = user._id || user.id;
+			if (userId) {
+				await this.userRepository.update({ _id: convertToDBObjectId(String(userId)) }, { last_synced_at: now });
+			}
 
 			return {
 				success: true,

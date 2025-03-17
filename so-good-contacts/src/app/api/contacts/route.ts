@@ -6,12 +6,25 @@ import { User } from "@/app/api/models/user";
 
 export const GET = withAuth(async (request: NextRequest, user: User) => {
 	try {
+		// Get pagination parameters from query
+		const searchParams = request.nextUrl.searchParams;
+		const page = parseInt(searchParams.get("page") || "1", 10);
+		const pageSize = parseInt(searchParams.get("pageSize") || "20", 10);
+		const sortField = searchParams.get("sortField") || "_id";
+		const sortDirection = parseInt(searchParams.get("sortDirection") || "1", 10) as 1 | -1;
+
 		const container = await getContainer(user);
 		const contactsService = container.get(ContactsService);
-		const contacts = await contactsService.getContactsWithCursor(user.id as string);
-		return NextResponse.json({
-			contacts: contacts,
-		});
+		// Use the new pagination method
+		const paginatedContacts = await contactsService.getContactsWithPagination(
+			user.id as string,
+			page,
+			pageSize,
+			sortField,
+			sortDirection
+		);
+		// Return the paginated contacts
+		return NextResponse.json(paginatedContacts);
 	} catch (error) {
 		console.error("Error fetching contacts:", error);
 		return NextResponse.json({ error: "Failed to fetch contacts" }, { status: 500 });
