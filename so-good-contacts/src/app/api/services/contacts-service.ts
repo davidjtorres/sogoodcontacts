@@ -34,11 +34,6 @@ export class ContactsService {
 	async getContacts(userId: string) {
 		return this.contactRepository.findAll({ user_id: userId });
 	}
-
-	async getContactsWithCursor(userId: string) {
-		return this.contactRepository.findByUserId(userId);
-	}
-
 	/**
 	 * Get contacts with page-based pagination
 	 * @param userId User ID to filter contacts
@@ -90,9 +85,6 @@ export class ContactsService {
 		return {
 			success: true,
 			importedCount: result.count,
-			invalidCount: 0,
-			sampleData: result.data.slice(0, 5),
-			importToConstantContact,
 		};
 	}
 
@@ -150,10 +142,6 @@ export class ContactsService {
 		return this.constantContactApiAdapter.importContacts(contacts, ["3d0239cc-fb96-11ef-a1b4-fa163e123590"]);
 	}
 
-	// Get contact lists from Constant Contact
-	async getContactLists() {
-		return this.constantContactApiAdapter.getContactLists();
-	}
 
 	/**
 	 * Sync contacts from Constant Contact to So Good Contacts
@@ -237,7 +225,6 @@ export class ContactsService {
 
 	/**
 	 * Process the bulk sync in the background
-	 * This method runs asynchronously without blocking the user request
 	 *
 	 * @param user The user to sync contacts for
 	 * @param jobId The ID of the sync job
