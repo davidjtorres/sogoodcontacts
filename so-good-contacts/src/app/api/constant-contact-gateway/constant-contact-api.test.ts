@@ -70,6 +70,51 @@ describe("ConstantContactApi", () => {
 		});
 	});
 
+	it("should get contacts with pagination", async () => {
+		const cursor = "1313123";
+		const mockContacts = [
+			{
+				email_address: {
+					address: "david@davidtorres.co",
+					permission_to_send: "explicit",
+				},
+			},
+		];
+		(axiosInstance.get as jest.Mock).mockResolvedValue({
+			data: {
+				contacts: mockContacts,
+				nextPageUrl: `/v3/contacts?cursor=${cursor}`,
+			},
+		});
+		const contacts = await constantContactApi.getContacts(undefined, `/v3/contacts?cursor=${cursor}`);
+		expect(axiosInstance.get).toHaveBeenCalledWith(`/contacts`, { params: { cursor } });
+		expect(contacts).toBeDefined();
+	});
+
+	it("should get all contacts", async () => {
+		const cursor = "1313123";
+		const mockContacts = [
+			{
+				email_address: {
+					address: "david@davidtorres.co",
+					permission_to_send: "explicit",
+				},
+			},
+		];
+		(axiosInstance.get as jest.Mock).mockResolvedValue({
+			data: {
+				contacts: mockContacts,
+				nextPageUrl: `/v3/contacts?cursor=${cursor}`,
+			},
+		});
+
+		const batchCallback = jest.fn();
+		const updatedAfter = "2025-01-01";
+
+		await constantContactApi.getAllContacts(updatedAfter, batchCallback);
+		expect(batchCallback).toHaveBeenCalled();
+	});
+
 	it("should get contacts with updated_after", async () => {
 		const mockContacts = [
 			{
