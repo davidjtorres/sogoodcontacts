@@ -105,7 +105,36 @@ describe("ContactsService", () => {
 
 		const mockCSVStream = createMockCSVStream(mockCSVContent);
 
-		const result = await contactsService.importContactsFromCSV(mockCSVStream, testUserId, true);
+		const result = await contactsService.importContactsFromCSV({
+			stream: mockCSVStream,
+			userId: testUserId,
+			importToConstantContact: true,
+			constantContactListsIds: ["3d0239cc-fb96-11ef-a1b4-fa163e123590"],
+		});
+		expect(result).toEqual({
+			success: true,
+			importedCount: 1,
+		});
+	});
+
+	it("should import contacts from a CSV stream without constant contact", async () => {
+		const mockCSVContent =
+			"first_name,last_name,email,phone_number,address_line_1,address_line_2,city,state,zipcode,country\nJohn,Doe,john@example.com,123-456-7890,123 Main St,Apt 4B,New York,NY,10001,USA";
+		function createMockCSVStream(csvContent: string): Readable {
+			const stream = new PassThrough();
+			csvContent.split("\n").forEach((line) => stream.push(line + "\n"));
+			stream.push(null); // End stream
+			return stream;
+		}
+
+		const mockCSVStream = createMockCSVStream(mockCSVContent);
+
+		const result = await contactsService.importContactsFromCSV({
+			stream: mockCSVStream,
+			userId: testUserId,
+			importToConstantContact: false,
+			constantContactListsIds: [],
+		});
 		expect(result).toEqual({
 			success: true,
 			importedCount: 1,
@@ -120,7 +149,23 @@ describe("ContactsService", () => {
 			email: "john.doe@example.com",
 		};
 		mockUserRepository.findOne.mockResolvedValue(mockUser);
-		mockConstantContactAdapter.getContacts.mockResolvedValue([]);
+		mockConstantContactAdapter.getContacts.mockResolvedValue([
+			{
+				user_id: testUserId,
+				first_name: "John",
+				last_name: "Doe",
+				email: "john.doe@example.com",
+				phone_number: "123-456-7890",
+				address: {
+					address_line_1: "123 Main St",
+					address_line_2: "Apt 4B",
+					city: "New York",
+					state: "NY",
+					zipcode: "10001",
+					country: "USA",
+				},
+			},
+		]);
 		mockContactRepository.create.mockResolvedValue("test-contact-id");
 		mockUserRepository.update.mockResolvedValue({
 			modifiedCount: 1,
@@ -128,7 +173,7 @@ describe("ContactsService", () => {
 		const result = await contactsService.syncConstantContactContacts(mockUser);
 		expect(result).toEqual({
 			success: true,
-			count: 0,
+			count: 1,
 			last_synced_at: expect.any(String),
 		});
 	});
@@ -140,7 +185,23 @@ describe("ContactsService", () => {
 			email: "john.doe@example.com",
 		};
 		mockUserRepository.findOne.mockResolvedValue(mockUser);
-		mockConstantContactAdapter.getContacts.mockResolvedValue([]);
+		(mockConstantContactAdapter.getContacts as jest.Mock).mockResolvedValue([
+			{
+				user_id: testUserId,
+				first_name: "John",
+				last_name: "Doe",
+				email: "john.doe@example.com",
+				phone_number: "123-456-7890",
+				address: {
+					address_line_1: "123 Main St",
+					address_line_2: "Apt 4B",
+					city: "New York",
+					state: "NY",
+					zipcode: "10001",
+					country: "USA",
+				},
+			},
+		]);
 		(mockConstantContactAdapter.getAllContactsInBatches as jest.Mock) = jest.fn((updated_after, batchProcessor) => {
 			batchProcessor(
 				[
@@ -211,7 +272,6 @@ describe("ContactsService", () => {
 		});
 	});
 
-
 	it("should start sync from constant contact with error", async () => {
 		const mockUser = {
 			id: testUserId,
@@ -221,7 +281,9 @@ describe("ContactsService", () => {
 		jest.spyOn(jobStatusTracker, "failJob");
 		mockUserRepository.findOne.mockResolvedValue(mockUser);
 		mockConstantContactAdapter.getContacts.mockResolvedValue([]);
-		(mockConstantContactAdapter.getAllContactsInBatches as jest.Mock).mockRejectedValue(new Error("Error fetching contacts"));
+		(mockConstantContactAdapter.getAllContactsInBatches as jest.Mock).mockRejectedValue(
+			new Error("Error fetching contacts")
+		);
 		mockContactRepository.create.mockRejectedValue(new Error("Error creating contacts"));
 		mockUserRepository.update.mockResolvedValue({
 			modifiedCount: 1,

@@ -74,13 +74,23 @@ export class ContactsService {
 	 * @param importToConstantContact Whether to also import contacts to Constant Contact
 	 * @returns Object containing success status, count, and sample data
 	 */
-	async importContactsFromCSV(stream: Readable, userId: string, importToConstantContact = false) {
+	async importContactsFromCSV({
+		stream,
+		userId,
+		importToConstantContact = false,
+		constantContactListsIds = [],
+	}: {
+		stream: Readable;
+		userId: string;
+		importToConstantContact: boolean;
+		constantContactListsIds: string[];
+	}) {
 		// Parse the CSV stream
 		const result = await parseCSVStream(stream, CONTACT_CSV_HEADERS);
 		// Transform CSV records to Contact objects
 		const contacts = this.transformCSVToContacts(result.data, userId);
 		// Create contacts in the background
-		this.createContactsInBackground(contacts, importToConstantContact);
+		this.createContactsInBackground(contacts, importToConstantContact, constantContactListsIds);
 		// Return result with sample data
 		return {
 			success: true,
@@ -119,8 +129,13 @@ export class ContactsService {
 	 * Create contacts in the background without blocking
 	 * @param contacts The contacts to create
 	 * @param importToConstantContact Whether to also import contacts to Constant Contact
+	 * @param constantContactListsIds The list IDs to import contacts to
 	 */
-	private async createContactsInBackground(contacts: Contact[], importToConstantContact = false): Promise<void> {
+	private async createContactsInBackground(
+		contacts: Contact[],
+		importToConstantContact = false,
+		constantContactListsIds: string[]
+	): Promise<void> {
 		try {
 			// Create contacts in So Good Contacts
 			this.createContact(contacts).catch((error) => {
@@ -128,7 +143,7 @@ export class ContactsService {
 			});
 			// If importToConstantContact is true, also import to Constant Contact
 			if (importToConstantContact && contacts.length > 0) {
-				this.importContactsToConstantContact(contacts).catch((error) => {
+				this.importContactsToConstantContact(contacts, constantContactListsIds).catch((error) => {
 					console.error("Error importing contacts to Constant Contact:", error);
 				});
 			}
@@ -138,10 +153,9 @@ export class ContactsService {
 	}
 
 	// Import contacts to Constant Contact
-	async importContactsToConstantContact(contacts: Contact[]) {
-		return this.constantContactApiAdapter.importContacts(contacts, ["3d0239cc-fb96-11ef-a1b4-fa163e123590"]);
+	async importContactsToConstantContact(contacts: Contact[], constantContactListsIds: string[]) {
+		return this.constantContactApiAdapter.importContacts(contacts, constantContactListsIds);
 	}
-
 
 	/**
 	 * Sync contacts from Constant Contact to So Good Contacts
