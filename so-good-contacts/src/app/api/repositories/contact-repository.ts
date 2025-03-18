@@ -172,6 +172,7 @@ export class ContactRepository implements IRepository<Contact> {
 						.limit(BATCH_SIZE)
 						.toArray();
 
+					// console.log(contacts);
 					// Exit the loop if no more contacts
 					if (contacts.length === 0) break;
 

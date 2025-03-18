@@ -25,6 +25,7 @@ describe("ContactRepository", () => {
 				findOne: jest.fn(),
 				updateOne: jest.fn(),
 				deleteOne: jest.fn(),
+				aggregate: jest.fn(),
 			}),
 		} as unknown as Db;
 
@@ -91,6 +92,39 @@ describe("ContactRepository", () => {
 
 		const result = await contactRepository.create(contacts);
 		expect(result).toEqual(insertedIds);
+	});
+
+	it("it should find with pagination", async () => {
+		const contacts: WithId<Contact>[] = [
+			{
+				_id: new ObjectId("67cf5673562cd26f0c2ffe48"),
+				first_name: "John",
+				last_name: "Doe",
+				email: "john@example.com",
+				user_id: "12345",
+				address: { address_line_1: "123 Main St", city: "Anytown", state: "CA", zipcode: "12345", country: "USA" },
+			},
+		];
+		(db.collection(collectionName).aggregate as jest.Mock).mockReturnValue({
+			toArray: jest.fn().mockResolvedValue([
+				{
+					data: contacts,
+					count: [
+						{
+							total: contacts.length,
+						},
+					],
+				},
+			]),
+		});
+
+		const result = await contactRepository.findWithPagination({ user_id: "12345" }, 1, 10);
+		expect(result).toEqual({
+			contacts: contacts.map((contact) => ({ ...contact, id: contact._id.toString() })),
+			totalCount: contacts.length,
+			totalPages: 1,
+			currentPage: 1,
+		});
 	});
 
 	it("should find all contacts", async () => {
@@ -165,5 +199,43 @@ describe("ContactRepository", () => {
 
 		const result = await contactRepository.delete(query);
 		expect(result).toEqual({ deletedCount: 1 });
+	});
+
+	it("should export contacts to CSV", async () => {
+		const contacts: WithId<Contact>[] = [
+			{
+				_id: new ObjectId("67cf5673562cd26f0c2ffe48"),
+				first_name: "John",
+				last_name: "Doe",
+				email: "john@example.com",
+				user_id: "12345",
+				address: { address_line_1: "123 Main St", city: "Anytown", state: "CA", zipcode: "12345", country: "USA" },
+			},
+			{
+				_id: new ObjectId("67cf5673562cd26f0c2ffe49"),
+				first_name: "Jane",
+				last_name: "Doe",
+				email: "jane@example.com",
+				user_id: "12345",
+				address: { address_line_1: "456 Main St", city: "Anytown", state: "CA", zipcode: "12345", country: "USA" },
+			},
+		];
+
+		(db.collection(collectionName).find as jest.Mock).mockReturnValueOnce({
+			sort: jest.fn().mockReturnValueOnce({
+				limit: jest.fn().mockReturnValueOnce({
+					toArray: jest.fn().mockReturnValueOnce(contacts),
+				}),
+			}),
+		});
+		(db.collection(collectionName).find as jest.Mock).mockReturnValueOnce({
+			sort: jest.fn().mockReturnValueOnce({
+				limit: jest.fn().mockReturnValueOnce({
+					toArray: jest.fn().mockReturnValueOnce([]),
+				}),
+			}),
+		});
+		const result = await contactRepository.exportContactsToCSV();
+		expect(result).toEqual(expect.any(ReadableStream));
 	});
 });
