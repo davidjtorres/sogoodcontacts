@@ -34,6 +34,13 @@ export class ConstantContactApiAdapter {
 			email: contact.email_address.address,
 			phone_number: contact?.phone_numbers?.[0]?.phone_number,
 			source: "constant_contact",
+			address: {
+				address_line_1: contact.street_addresses?.[0]?.street,
+				city: contact.street_addresses?.[0]?.city,
+				state: contact.street_addresses?.[0]?.state,
+				zipcode: contact.street_addresses?.[0]?.postal_code,
+				country: contact.street_addresses?.[0]?.country,
+			},
 		}));
 	}
 

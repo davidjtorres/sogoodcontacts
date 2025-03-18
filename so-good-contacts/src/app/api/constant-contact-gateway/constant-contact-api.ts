@@ -39,7 +39,11 @@ export class ConstantContactApi {
 			};
 		} else {
 			// For the initial request
-			const params = { updated_after, include: "custom_fields,phone_numbers", limit: 500 };
+			const params = {
+				updated_after,
+				include: "custom_fields,phone_numbers,street_addresses",
+				limit: 500,
+			};
 			const response = await this.httpClient.get(`/contacts`, { params });
 			return {
 				contacts: response.data.contacts,
