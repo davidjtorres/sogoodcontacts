@@ -124,7 +124,7 @@ export class ConstantContactApiAdapter {
 		};
 	}
 
-	async importContacts(contacts: Contact[], listIds: string[] = []): Promise<Contact[]> {
+	async importContacts(contacts: Contact[], listIds: string[]): Promise<Contact[]> {
 		const importContacts: IConstantContactApiImportContact[] = contacts.map((contact) => ({
 			email: contact.email,
 			first_name: contact.first_name,
@@ -144,7 +144,4 @@ export class ConstantContactApiAdapter {
 		return this.constantContactApi.importContacts(importContacts, listIds);
 	}
 
-	async getContactLists() {
-		return this.constantContactApi.getContactLists();
-	}
 }
