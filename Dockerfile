@@ -18,6 +18,7 @@ COPY . .
 ENV MONGODB_DATABASE=sogoodcontacts
 ENV CONSTANT_CONTACT_API_URL=https://api.cc.email/v3
 ENV MONGODB_URI=mongodb://mongo:27017
+ENV AUTH_USER_ID=67cf575d562cd26f0c2ffe49
 
 
 # Build the Next.js application

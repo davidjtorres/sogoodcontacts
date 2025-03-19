@@ -14,7 +14,11 @@ export async function authenticateUser(): Promise<User | null> {
 		const userRepository = container.get<UserRepository>(UserRepository);
 
 		// Hardcoded user ID - assuming this user exists in the database for testing purposes
-		const authUserId = "67cf575d562cd26f0c2ffe49";
+		const authUserId = process.env.AUTH_USER_ID;
+
+		if (!authUserId) {
+			throw new Error("AUTH_USER_ID is not set");
+		}
 
 		// Fetch the user by ID
 		const user = await userRepository.findById(authUserId);
