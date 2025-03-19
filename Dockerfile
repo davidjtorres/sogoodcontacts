@@ -21,6 +21,9 @@ ENV MONGODB_URI=mongodb://mongo:27017
 ENV AUTH_USER_ID=67cf575d562cd26f0c2ffe49
 
 
+# Run the setup-db script
+RUN npm run setup-db
+
 # Build the Next.js application
 RUN npm run build
 

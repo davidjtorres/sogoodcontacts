@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "npx jest"
+    "test": "npx jest",
+    "setup-db": "node setup-db.js"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.0.5",
@@ -41,6 +42,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.2.1",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }
