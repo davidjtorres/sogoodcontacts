@@ -1,4 +1,5 @@
 import { MongoClient } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
 const DB_NAME = 'sogoodcontacts';
@@ -28,21 +29,31 @@ async function setupDatabase() {
     const db = client.db(DB_NAME);
     console.log(`Using database: ${DB_NAME}`);
 
-    // Create collections
-    await db.createCollection('users');
-    await db.createCollection('contacts');
+    // Get list of existing collections
+    const collections = await db.listCollections().toArray();
+    const collectionNames = collections.map(c => c.name);
+
+    // Create collections if they don't exist
+    if (!collectionNames.includes('users')) {
+      await db.createCollection('users');
+      console.log('Users collection created');
+    } else {
+      console.log('Users collection already exists');
+    }
+
+    if (!collectionNames.includes('contacts')) {
+      await db.createCollection('contacts');
+      console.log('Contacts collection created');
+    } else {
+      console.log('Contacts collection already exists');
+    }
 
     // Create indexes for users collection
     await db.collection('users').createIndex({ email: 1 }, { unique: true });
-    await db.collection('users').createIndex({ createdAt: 1 });
 
     // Create indexes for contacts collection
-    await db.collection('contacts').createIndex({ userId: 1 });
     await db.collection('contacts').createIndex({ email: 1 });
-    await db.collection('contacts').createIndex({ createdAt: 1 });
 
-    console.log('Database and collections created successfully');
-    console.log('Indexes created successfully');
 
     // Add test user
     try {
@@ -60,7 +71,6 @@ async function setupDatabase() {
 
   } catch (error) {
     console.error('Error setting up database:', error);
-    throw error;
   } finally {
     // Close the connection
     await client.close();
