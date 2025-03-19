@@ -48,7 +48,12 @@ export const POST = withAuth(async (request: NextRequest, user: User) => {
 		const contactsService = container.get<ContactsService>(ContactsService);
 
 		// Process the CSV import using the service
-		const result = await contactsService.importContactsFromCSV(stream, user.id as string, importToConstantContact);
+		const result = await contactsService.importContactsFromCSV({
+			stream,
+			userId: user.id as string,
+			importToConstantContact,
+			constantContactListsIds: user.constant_contact_lists_ids || [],
+		});
 
 		// Return success response
 		return NextResponse.json(result);
