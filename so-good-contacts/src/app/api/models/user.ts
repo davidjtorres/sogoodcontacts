@@ -8,4 +8,5 @@ export type User = {
 	constant_contact_token?: string;
 	constant_contact_refresh_token?: string;
 	last_synced_at?: Date;
+	constant_contact_lists_ids?: string[];
 };
