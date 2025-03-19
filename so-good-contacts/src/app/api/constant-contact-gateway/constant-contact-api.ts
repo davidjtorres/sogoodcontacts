@@ -77,6 +77,8 @@ export class ConstantContactApi {
 			}
 			// Get the next page URL
 			nextPageUrl = result.nextPageUrl;
+			//add a delay of 1 second between batches
+			await new Promise((resolve) => setTimeout(resolve, 300));
 		} while (nextPageUrl);
 
 		return allContacts;
